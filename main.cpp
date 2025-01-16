@@ -2,80 +2,80 @@
 #include <thread>
 #include <vector>
 #include <mutex>
-#include <cstring>
+#include <string>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <netdb.h>
 #include <chrono>
 
-std::mutex outputMutex;
+std::mutex consoleLock;
 
-void scanPort(const std::string& ip, int port) {
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0) {
-        std::lock_guard<std::mutex> lock(outputMutex);
-        std::cerr << "Socket creation failed for port " << port << "\n";
+void performPortScan(const std::string& ipAddress, int portNumber) {
+    int socketFD = socket(AF_INET, SOCK_STREAM, 0);
+    if (socketFD < 0) {
+        std::lock_guard<std::mutex> lock(consoleLock);
+        std::cerr << "Failed to create socket for port " << portNumber << "\n";
         return;
     }
 
-    struct sockaddr_in address;
-    address.sin_family = AF_INET;
-    address.sin_port = htons(port);
-    inet_pton(AF_INET, ip.c_str(), &address.sin_addr);
+    struct sockaddr_in connectionDetails;
+    connectionDetails.sin_family = AF_INET;
+    connectionDetails.sin_port = htons(portNumber);
+    inet_pton(AF_INET, ipAddress.c_str(), &connectionDetails.sin_addr);
 
-    auto startTime = std::chrono::high_resolution_clock::now();
+    auto startTime = std::chrono::steady_clock::now();
 
-    if (connect(sock, (struct sockaddr*)&address, sizeof(address)) == 0) {
-        auto endTime = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> elapsed = endTime - startTime;
+    if (connect(socketFD, (struct sockaddr*)&connectionDetails, sizeof(connectionDetails)) == 0) {
+        auto endTime = std::chrono::steady_clock::now();
+        std::chrono::duration<double> elapsedTime = endTime - startTime;
 
-        struct servent* service = getservbyport(htons(port), "tcp");
-        const char* serviceName = (service && service->s_name) ? service->s_name : "unknown";
+        struct servent* serviceDetails = getservbyport(htons(portNumber), "tcp");
+        const char* serviceName = (serviceDetails && serviceDetails->s_name) ? serviceDetails->s_name : "N/A";
 
-        std::lock_guard<std::mutex> lock(outputMutex);
-        std::cout << "Port " << port << " is open on " << ip
+        std::lock_guard<std::mutex> lock(consoleLock);
+        std::cout << "Port " << portNumber << " is accessible on " << ipAddress
                   << " (Service: " << serviceName
-                  << ", Response Time: " << elapsed.count() << "s)\n";
+                  << ", Time: " << elapsedTime.count() << " seconds)\n";
     }
 
-    close(sock);
+    close(socketFD);
 }
 
 int main() {
-    std::string targetIP;
-    int startPort, endPort, threadLimit;
+    std::string hostIP;
+    int portStart, portEnd, maxThreads;
 
-    std::cout << "Enter the target IP address: ";
-    std::cin >> targetIP;
-    std::cout << "Enter the start port: ";
-    std::cin >> startPort;
-    std::cout << "Enter the end port: ";
-    std::cin >> endPort;
-    std::cout << "Enter the maximum number of threads: ";
-    std::cin >> threadLimit;
+    std::cout << "Input target IP address: ";
+    std::cin >> hostIP;
+    std::cout << "Input starting port number: ";
+    std::cin >> portStart;
+    std::cout << "Input ending port number: ";
+    std::cin >> portEnd;
+    std::cout << "Set the maximum number of threads: ";
+    std::cin >> maxThreads;
 
-    std::vector<std::thread> threads;
-    int activeThreads = 0;
+    std::vector<std::thread> workerThreads;
+    int ongoingThreads = 0;
 
-    for (int port = startPort; port <= endPort; ++port) {
-        while (activeThreads >= threadLimit) {
+    for (int port = portStart; port <= portEnd; ++port) {
+        while (ongoingThreads >= maxThreads) {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
 
-        threads.emplace_back([&]() {
-            scanPort(targetIP, port);
-            --activeThreads;
+        workerThreads.emplace_back([&]() {
+            performPortScan(hostIP, port);
+            --ongoingThreads;
         });
 
-        ++activeThreads;
+        ++ongoingThreads;
     }
 
-    for (auto& t : threads) {
-        if (t.joinable()) {
-            t.join();
+    for (auto& thread : workerThreads) {
+        if (thread.joinable()) {
+            thread.join();
         }
     }
 
-    std::cout << "Scanning complete!\n";
+    std::cout << "Port scanning completed successfully.\n";
     return 0;
 }
