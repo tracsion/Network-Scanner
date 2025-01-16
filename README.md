@@ -58,10 +58,6 @@ Scanning complete!
 
 This tool is intended for educational purposes only. Scanning networks without proper authorization is illegal and unethical. Always ensure you have permission before using this tool.
 
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
 ## Contributing
 
 Contributions are welcome! Feel free to submit issues or pull requests to improve this tool.
