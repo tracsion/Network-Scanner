@@ -64,5 +64,5 @@ Contributions are welcome! Feel free to submit issues or pull requests to improv
 
 ## Author
 
-Developed by [Your Name].
+Developed by Hector
 
